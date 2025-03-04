@@ -1,0 +1,11 @@
+env: "local"
+
+mailer:
+  api_url: "https://api.mailopost.ru/v1"
+  api_token: "c263ca13ea017f6d003c2b2802c4943a"
+  from_email: "1kartofan@gmail.com"
+
+kafka:
+  broker: "kafka:9092"
+  topic: "emails"
+  group_id: "mailer-group"
