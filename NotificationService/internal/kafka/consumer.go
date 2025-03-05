@@ -5,7 +5,7 @@ import (
 	"NotificationService/internal/mailer"
 	"context"
 	"encoding/json"
-	"time"
+
 
 	"github.com/segmentio/kafka-go"
 	"go.uber.org/zap"
@@ -43,7 +43,6 @@ func (c *Consumer) Start(ctx context.Context) {
                     return
                 }
                 c.logger.Error("Failed to read message from Kafka", zap.Error(err))
-                time.Sleep(5 * time.Second)
                 continue
             }
 

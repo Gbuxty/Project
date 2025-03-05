@@ -31,7 +31,7 @@ func main() {
 		log,
 	)
 
-	application := app.New(log, cfg,kafkaProducer)
+	application := app.New(log, cfg, kafkaProducer)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

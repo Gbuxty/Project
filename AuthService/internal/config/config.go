@@ -8,11 +8,11 @@ import (
 )
 
 type Config struct {
-	Env       string           `yaml:"env"`
-	Postgres  *PostgresConfig  `yaml:"postgres"`
-	Auth      *AuthConfig      `yaml:"auth"`
-	Grpc      *GRPCConfig      `yaml:"grpc"`
-	Kafka    KafkaConfig    `yaml:"kafka"`
+	Env      string          `yaml:"env"`
+	Postgres *PostgresConfig `yaml:"postgres"`
+	Auth     *AuthConfig     `yaml:"auth"`
+	Grpc     *GRPCConfig     `yaml:"grpc"`
+	Kafka    *KafkaConfig    `yaml:"kafka"`
 }
 
 type AuthConfig struct {
