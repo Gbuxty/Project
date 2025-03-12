@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"time"
 
-	"AuthService/internal/domain/models"
-	"AuthService/internal/service"
-	"AuthService/proto/gen"
+	"Project/AuthService/internal/domain/models"
+	"Project/AuthService/internal/service"
+	"Project/proto/gen"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -31,12 +31,11 @@ func (h *AuthHandlers) Register(ctx context.Context, req *gen.RegisterRequest) (
 	h.logger.Info("Registering new user", zap.String("email", req.Email))
 
 	if err := h.service.Register(ctx, req.Email, req.Password, req.RepeatPassword); err != nil {
-		h.logger.Error("Failed to register user", zap.String("email", req.Email), zap.Error(err))
+		h.logger.Error("Failed to register user", zap.String("email", req.Email),zap.String("password",req.Password),zap.String("repeatpassword",req.RepeatPassword))
 		return nil, fmt.Errorf("failed to register user: %w", err)
 	}
 
 	h.logger.Info("User registered successfully", zap.String("email", req.Email))
-
 
 	return &gen.RegisterResponse{Success: true}, nil
 }
@@ -44,7 +43,6 @@ func (h *AuthHandlers) Register(ctx context.Context, req *gen.RegisterRequest) (
 func (h *AuthHandlers) Login(ctx context.Context, req *gen.LoginRequest) (*gen.LoginResponse, error) {
 	h.logger.Info("Logging in user", zap.String("email", req.Email))
 
-	
 	user, accessToken, refreshToken, err := h.service.Login(ctx, req.Email, req.Password)
 	if err != nil {
 		h.logger.Error("Failed to login user", zap.String("email", req.Email), zap.Error(err))
@@ -74,16 +72,16 @@ func mapUserToLoginResponse(user *models.User, accessToken, refreshToken string,
 		},
 	}
 }
+
 func (h *AuthHandlers) Logout(ctx context.Context, req *gen.LogoutRequest) (*gen.LogoutResponse, error) {
-	userID, err := uuid.Parse(req.User.Id)
+	userID, err := uuid.Parse(req.Id)
 	if err != nil {
-		h.logger.Error("Invalid user ID", zap.String("userID", req.User.Id), zap.Error(err))
+		h.logger.Error("Invalid user ID", zap.String("userID", req.Id), zap.Error(err))
 		return nil, fmt.Errorf("invalid user ID: %w", err)
 	}
 
 	h.logger.Info("Logging out user", zap.String("userID", userID.String()))
 
-	
 	if err := h.service.Logout(ctx, userID); err != nil {
 		h.logger.Error("Failed to logout user", zap.String("userID", userID.String()), zap.Error(err))
 		return nil, fmt.Errorf("failed to logout user: %w", err)
@@ -104,7 +102,6 @@ func (h *AuthHandlers) Refresh(ctx context.Context, req *gen.RefreshRequest) (*g
 		return nil, fmt.Errorf("failed to refresh tokens: %w", err)
 	}
 
-	
 	response := mapTokensToRefreshResponse(accessToken, refreshToken, h.service.AccessTokenTTL, h.service.RefreshTokenTTL)
 
 	h.logger.Info("Tokens refreshed successfully", zap.String("userID", user.ID.String()))
@@ -133,7 +130,6 @@ func (h *AuthHandlers) Me(ctx context.Context, req *gen.MeRequest) (*gen.MeRespo
 		return nil, fmt.Errorf("failed to fetch user info: %w", err)
 	}
 
-	
 	response := mapUserToMeResponse(user)
 
 	h.logger.Info("User info fetched successfully", zap.String("userID", user.ID.String()), zap.String("email", user.Email))
@@ -152,13 +148,12 @@ func mapUserToMeResponse(user *models.User)*gen.MeResponse{
 func (h *AuthHandlers) ConfirmEmail(ctx context.Context, req *gen.ConfirmEmailRequest) (*gen.ConfirmEmailResponse, error) {
 	h.logger.Info("Confirming email", zap.String("email", req.Email), zap.String("confirmation_code", req.ConfirmationCode))
 
-	
 	userID, err := h.service.ConfirmEmail(ctx, req.Email, req.ConfirmationCode)
 	if err != nil {
 		h.logger.Error("Failed to confirm email", zap.String("email", req.Email), zap.Error(err))
 		return nil, fmt.Errorf("failed to confirm email: %w", err)
 	}
-
+	
 	h.logger.Info("Email confirmed successfully", zap.String("userID", userID.String()))
 	return &gen.ConfirmEmailResponse{Success: true}, nil
 }

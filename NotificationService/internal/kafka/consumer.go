@@ -29,19 +29,15 @@ func NewConsumer(brokers []string, topic string, groupID string, mailer *mailer.
 	}
 }
 
-func (c *Consumer) Start(ctx context.Context) {
+func (c *Consumer) Start(ctx context.Context)  {
     for {
         select {
         case <-ctx.Done():
             c.logger.Info("Kafka Consumer stopped")
-            return
+            return 
         default:
             msg, err := c.reader.ReadMessage(ctx)
             if err != nil {
-                if err == context.Canceled {
-                    c.logger.Info("Kafka Consumer context canceled")
-                    return
-                }
                 c.logger.Error("Failed to read message from Kafka", zap.Error(err))
                 continue
             }

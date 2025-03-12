@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"net"
 
-	"AuthService/internal/transport/handlers"
-	"AuthService/proto/gen"
+	"Project/AuthService/internal/transport/handlers"
+	"Project/proto/gen"
 
 	"go.uber.org/zap"
 	"google.golang.org/grpc"

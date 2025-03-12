@@ -37,8 +37,8 @@ message LoginResponse{
 }
 
 message LogoutRequest{
-    string access_token=1;
-    User User=2;
+    string id = 1;
+  
 }
 
 message LogoutResponse{

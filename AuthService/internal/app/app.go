@@ -1,37 +1,32 @@
 package app
 
 import (
-	"AuthService/internal/config"
-	"AuthService/internal/kafka"
-	"AuthService/internal/logger"
-	"AuthService/internal/service"
-	"AuthService/internal/storage/postgres"
-	"AuthService/internal/transport/handlers"
-	"AuthService/internal/transport/server"
-
-	"go.uber.org/zap"
+	"Project/AuthService/internal/config"
+	"Project/AuthService/internal/kafka"
+	"Project/AuthService/internal/logger"
+	"Project/AuthService/internal/service"
+	"Project/AuthService/internal/storage/postgres"
+	"Project/AuthService/internal/transport/handlers"
+	"Project/AuthService/internal/transport/server"
+	"Project/AuthService/pkg/database"
+	
+	"fmt"
 )
 
 type App struct {
 	GRPCServer *server.GRPCServer
 }
 
-func New(log *logger.Logger, cfg *config.Config,kafkaProducer *kafka.Producer) *App {
-
-
-	db, err := postgres.ConnectToDB(cfg.Postgres.StoragePath)
+func New(log *logger.Logger, cfg *config.Config,kafkaProducer *kafka.Producer) (*App,error) {
+	db, err := database.ConnectToDB(cfg.Postgres.StoragePath)
 	if err != nil {
-		log.Error("Failed to connect to database", zap.Error(err))
-		return nil
+		return nil,fmt.Errorf("Failed connect to db:%w",err)
 	}
 
 	userStorage, err := postgres.NewUserStorage(db)
 	if err != nil {
-		log.Error("Failed to init user storage", zap.Error(err))
-		return nil
+		return nil,fmt.Errorf("Failed to init user repositories:%w",err)
 	}
-
-
 
 	authService := service.NewAuthenticationService(
 		userStorage,
@@ -44,9 +39,6 @@ func New(log *logger.Logger, cfg *config.Config,kafkaProducer *kafka.Producer) *
 	)
 
 	authHandlers := handlers.NewAuthHandlers(authService, log.Logger)
-	if authHandlers == nil {
-		return nil
-	}
 
 	grpcServer := server.NewGRPCServer(
 		log.Logger,
@@ -56,15 +48,13 @@ func New(log *logger.Logger, cfg *config.Config,kafkaProducer *kafka.Producer) *
 
 	return &App{
 		GRPCServer: grpcServer,
-	}
+	},nil
 }
 
 func (a *App) RunGRPC() error {
-
 	return a.GRPCServer.Run()
 }
 
 func (a *App) StopGRPC() {
-
 	a.GRPCServer.Stop()
 }

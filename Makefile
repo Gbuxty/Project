@@ -1,12 +1,12 @@
 DB_DSN=postgres://postgres:postgres_1234@localhost:5432/Authentication?sslmode=disable
 MIGRATIONS_DIR=./migrations/postgres
-
+CONFIG_PATH=config/local.yaml
 
 gen-proto:
 	protoc --go_out=./proto/ --go-grpc_out=./proto/ ./proto/authentication.proto
 
 run:
-	go run ./cmd/main.go
+	go run ./cmd/main.go -c=$(CONFIG_PATH)
 
 migrate-create-%:
 	goose -dir $(MIGRATIONS_DIR) create $(subst migrate_create_,,$@) sql

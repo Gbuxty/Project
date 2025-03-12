@@ -10,7 +10,7 @@ services:
       ZOOKEEPER_TICK_TIME: 2000
 
   kafka:
-    image: confluentinc/cp-kafka:latest
+    image: confluentinc/cp-kafka:7.4.0
     container_name: kafka
     restart: always
     ports:
@@ -18,20 +18,19 @@ services:
     depends_on:
       - zookeeper
     environment:
-      KAFKA_ADVERTISED_HOST_NAME: kafka
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2182
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
-      KAFKA_DEFAULT_REPLICATION_FACTOR: 1
-      KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2182'
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_INTERNAL://kafka:29092
-      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT_INTERNAL
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
-      CONNECT_CONFIG_STORAGE_COMPACT: "true"
-      CONNECT_OFFSET_STORAGE_COMPACT: "true"
-      CONNECT_STATUS_STORAGE_COMPACT: "true"
+      KAFKA_LOG4J_LOGGERS: "kafka.controller=DEBUG,kafka.coordinator.group=DEBUG"
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z kafka 9092 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   kafka_ui:
     image: provectuslabs/kafka-ui:latest
@@ -43,7 +42,7 @@ services:
     environment:
       KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2182
       KAFKA_CLUSTERS_0_NAME: local2
-      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: 'kafka:29092'
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: 'kafka:9092'
 
   postgres:
     image: postgres:13
@@ -55,25 +54,65 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   authservice:
     build:
       context: .
       dockerfile: AuthService/Dockerfile
     ports:
-      - "9090:9090"  
+      - "9090:9090"
     depends_on:
-      - postgres
-      - kafka
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    volumes:
+      - ./proto:/proto
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z kafka 9092 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   notificationservice:
     build:
       context: .
       dockerfile: NotificationService/Dockerfile
+    command: sh -c "while ! nc -z kafka 9092; do sleep 60; done; ./notificationservice -c=config/local.yaml"
     depends_on:
       - kafka
       - authservice
-    command: sh -c "sleep 30 && ./notificationservice"
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z kafka 9092 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  apigateway:
+    build:
+      context: .
+      dockerfile: APIGateWay/Dockerfile
+    ports:
+      - "8080:8080"
+      
+    depends_on:
+      - authservice
+      - notificationservice
+    volumes:
+      - ./APIGateWay/swagger.yaml:/app/swagger.yaml
+      - ./proto:/proto
+    environment:
+      AUTH_SERVICE_ADDRESS: "authservice:9090" 
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
 volumes:
   zookeeper_data:

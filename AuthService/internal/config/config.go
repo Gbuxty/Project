@@ -1,49 +1,59 @@
 package config
 
 import (
-	"os"
+	"flag"
+	"fmt"
 	"time"
 
-	"gopkg.in/yaml.v3"
+	"github.com/spf13/viper"
 )
 
 type Config struct {
-	Env      string          `yaml:"env"`
-	Postgres *PostgresConfig `yaml:"postgres"`
-	Auth     *AuthConfig     `yaml:"auth"`
-	Grpc     *GRPCConfig     `yaml:"grpc"`
-	Kafka    *KafkaConfig    `yaml:"kafka"`
+	Env      string          `mapstructure:"env"`
+	Postgres *PostgresConfig `mapstructure:"postgres"`
+	Auth     *AuthConfig     `mapstructure:"auth"`
+	Grpc     *GRPCConfig     `mapstructure:"grpc"`
+	Kafka    *KafkaConfig    `mapstructure:"kafka"`
 }
 
 type AuthConfig struct {
-	SecretKey       string        `yaml:"secret_key"`
-	AccessTokenTTL  time.Duration `yaml:"access_token_ttl"`
-	RefreshTokenTTL time.Duration `yaml:"refresh_token_ttl"`
+	SecretKey       string        `mapstructure:"secret_key"`
+	AccessTokenTTL  time.Duration `mapstructure:"access_token_ttl"`
+	RefreshTokenTTL time.Duration `mapstructure:"refresh_token_ttl"`
 }
 
 type PostgresConfig struct {
-	StoragePath string `yaml:"storage_path"`
+	StoragePath string `mapstructure:"storage_path"`
 }
 
 type GRPCConfig struct {
-	Port    int           `yaml:"port"`
-	TimeOut time.Duration `yaml:"timeout"`
+	Port    int           `mapstructure:"port"`
+	TimeOut time.Duration `mapstructure:"timeout"`
 }
 
 type KafkaConfig struct {
-	Broker string `yaml:"broker"`
-	Topic  string `yaml:"topic"`
+	Broker string `mapstructure:"broker"`
+	Topic  string `mapstructure:"topic"`
+}
+
+func InitFlags() string {
+	var configPath string
+	flag.StringVar(&configPath, "c", "config/local.yaml", "Path to the configuration file")
+	flag.Parse()
+	return configPath
 }
 
 func LoadConfig(path string) (*Config, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
+	viper.SetConfigFile(path)
+	viper.SetConfigType("yaml")
+
+	if err := viper.ReadInConfig(); err != nil {
+		return nil, fmt.Errorf("Failed read to configurefile viper:%w", err)
 	}
 
 	var cfg Config
-	if err := yaml.Unmarshal(data, &cfg); err != nil {
-		return nil, err
+	if err := viper.Unmarshal(&cfg); err != nil {
+		return nil, fmt.Errorf("Failed to Unmurshal configurefile viper:%w", err)
 	}
 
 	return &cfg, nil

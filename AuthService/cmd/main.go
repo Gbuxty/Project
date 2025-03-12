@@ -1,10 +1,10 @@
 package main
 
 import (
-	"AuthService/internal/app"
-	"AuthService/internal/config"
-	"AuthService/internal/kafka"
-	"AuthService/internal/logger"
+	"Project/AuthService/internal/app"
+	"Project/AuthService/internal/config"
+	"Project/AuthService/internal/kafka"
+	"Project/AuthService/internal/logger"
 	"context"
 	"os"
 	"os/signal"
@@ -14,14 +14,16 @@ import (
 )
 
 func main() {
+	configPath:=config.InitFlags()
 
 	log, err := logger.New()
 	if err != nil {
-		log.Fatal("Failed to logger", zap.Error(err))
+		log.Fatal("Failed to logger", zap.Error(err)) //вот тут логфатал не сработает если ошибка .он не инициализировался
 	}
+
 	defer log.Sync()
 
-	cfg, err := config.LoadConfig("config/local.yaml")
+	cfg, err := config.LoadConfig(configPath)
 	if err != nil {
 		log.Fatal("Failed to load config", zap.Error(err))
 	}
@@ -31,7 +33,10 @@ func main() {
 		log,
 	)
 
-	application := app.New(log, cfg, kafkaProducer)
+	application,err := app.New(log, cfg, kafkaProducer)
+	if err!=nil{
+		log.Fatal("Failed to load application", zap.Error(err))
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -53,5 +58,4 @@ func main() {
 	case <-ctx.Done():
 		log.Info("Forced shutdown...")
 	}
-
 }

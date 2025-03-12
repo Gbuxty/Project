@@ -1,7 +1,7 @@
 package kafka
 
 import (
-	"AuthService/internal/logger"
+	"Project/AuthService/internal/logger"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -27,10 +27,8 @@ func NewProducer(brokers []string, topic string, logger *logger.Logger) *Produce
 }
 
 func (p *Producer) SendMessage(ctx context.Context, key string, value interface{}) error {
-
 	jsonValue, err := json.Marshal(value)
 	if err != nil {
-		p.logger.Error("Failed to marshal message", zap.Error(err))
 		return fmt.Errorf("failed to marshal message: %w", err)
 	}
 
@@ -40,7 +38,6 @@ func (p *Producer) SendMessage(ctx context.Context, key string, value interface{
 	})
 
 	if err != nil {
-		p.logger.Error("failed to send message to Kafka", zap.Error(err))
 		return fmt.Errorf("failed to send message to Kafka: %w", err)
 	}
 	p.logger.Info("Message sent to Kafka", zap.String("key", key))

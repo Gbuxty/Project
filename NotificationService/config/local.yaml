@@ -8,4 +8,4 @@ mailer:
 kafka:
   broker: "kafka:9092"
   topic: "emails"
-  group_id: "mailer-group"
+  group_id: "mailer-group"  

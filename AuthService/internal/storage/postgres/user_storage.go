@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"AuthService/internal/domain/models"
+	"Project/AuthService/internal/domain/models"
 	"time"
 
 	"github.com/google/uuid"
@@ -16,13 +16,6 @@ type UserStorage struct {
 	db *pgxpool.Pool
 }
 
-func ConnectToDB(connStr string) (*pgxpool.Pool, error) {
-	db, err := pgxpool.New(context.Background(), connStr)
-	if err != nil {
-		return nil, fmt.Errorf("failed to connect to db: %w", err)
-	}
-	return db, nil
-}
 
 func NewUserStorage(db *pgxpool.Pool) (*UserStorage, error) {
 	return &UserStorage{

@@ -1,11 +1,16 @@
-FROM golang:1.22-alpine AS builder
+FROM golang:1.23.0-alpine AS builder
 
 WORKDIR /app
 
-COPY AuthService/go.mod AuthService/go.sum ./
+COPY go.mod go.sum ./
 RUN go mod download
 
-COPY AuthService/ ./
+
+COPY proto/ /app/proto/
+
+COPY AuthService/ ./AuthService/
+
+WORKDIR /app/AuthService
 
 RUN CGO_ENABLED=0 GOOS=linux go build -o authservice ./cmd/main.go
 
@@ -15,11 +20,13 @@ FROM alpine:latest
 
 WORKDIR /app
 
+COPY --from=builder /app/AuthService/authservice .
 
-COPY --from=builder /app/authservice .
 COPY --from=builder /go/bin/goose /usr/local/bin/goose
+
 COPY AuthService/config/local.yaml ./config/local.yaml
 COPY AuthService/migrations/postgres ./migrations
 
+EXPOSE 9090
 
-CMD goose -dir ./migrations postgres "user=postgres password=postgres_1234 dbname=Authentication sslmode=disable host=postgres" up && ./authservice
+ENTRYPOINT ["./authservice", "-c=config/local.yaml"]
