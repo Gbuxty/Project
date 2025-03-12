@@ -21,14 +21,13 @@ type EmailRequest struct {
 	Body    string `json:"body"`
 }
 
-
-
 type EmailData struct {
 	FromEmail string `json:"from_email"`
 	To        string `json:"to"`
 	Subject   string `json:"subject"`
 	Text      string `json:"text"`
 }
+
 type Mailer struct {
 	ApiURL    string
 	ApiToken  string

@@ -1,10 +1,10 @@
 package app
 
 import (
-	"NotificationService/internal/config"
-	"NotificationService/internal/kafka"
-	"NotificationService/internal/logger"
-	"NotificationService/internal/mailer"
+	"Project/NotificationService/internal/config"
+	"Project/NotificationService/internal/kafka"
+	"Project/NotificationService/internal/logger"
+	"Project/NotificationService/internal/mailer"
 	"context"
 	
 

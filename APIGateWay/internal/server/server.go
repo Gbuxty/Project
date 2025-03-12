@@ -15,14 +15,12 @@ func NewServer(authService *service.AuthService) *Server {
 	app := fiber.New()
 
 	app.Static("/", "/app")
-	
+
 	app.Get("/swagger/*", swagger.New(swagger.Config{
 		URL:"/swagger.yaml",
 	}))
 	
 	authHandlers := handlers.NewAuthHandlers(authService)
-
-	
 
 	app.Post("/register", authHandlers.Register)
 	app.Post("/login", authHandlers.Login)

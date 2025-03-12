@@ -1,8 +1,8 @@
 package kafka
 
 import (
-	"NotificationService/internal/logger"
-	"NotificationService/internal/mailer"
+	"Project/NotificationService/internal/logger"
+	"Project/NotificationService/internal/mailer"
 	"context"
 	"encoding/json"
 

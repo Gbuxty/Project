@@ -6,9 +6,9 @@ import (
 	"os/signal"
 	"syscall"
 
-	"NotificationService/internal/app"
-	"NotificationService/internal/config"
-	"NotificationService/internal/logger"
+	"Project/NotificationService/internal/app"
+	"Project/NotificationService/internal/config"
+	"Project/NotificationService/internal/logger"
 
 	"go.uber.org/zap"
 )
