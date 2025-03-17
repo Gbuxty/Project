@@ -3,3 +3,5 @@ env: "local"
 auth_service_address: "authservice:9090"
 
 http_server_adress: ":8080"
+
+feed_service_address: "feedservice:7070"

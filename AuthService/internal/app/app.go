@@ -4,12 +4,13 @@ import (
 	"Project/AuthService/internal/config"
 	"Project/AuthService/internal/kafka"
 	"Project/AuthService/internal/logger"
+	"Project/AuthService/internal/redis"
 	"Project/AuthService/internal/service"
 	"Project/AuthService/internal/storage/postgres"
 	"Project/AuthService/internal/transport/handlers"
 	"Project/AuthService/internal/transport/server"
 	"Project/AuthService/pkg/database"
-	
+
 	"fmt"
 )
 
@@ -28,6 +29,13 @@ func New(log *logger.Logger, cfg *config.Config,kafkaProducer *kafka.Producer) (
 		return nil,fmt.Errorf("Failed to init user repositories:%w",err)
 	}
 
+	
+
+	redisClient := redis.NewClient(cfg.Redis.Addr)
+	if redisClient == nil {
+		return nil, fmt.Errorf("failed to connect to Redis")
+	}
+
 	authService := service.NewAuthenticationService(
 		userStorage,
 		cfg.Auth.SecretKey,
@@ -35,7 +43,7 @@ func New(log *logger.Logger, cfg *config.Config,kafkaProducer *kafka.Producer) (
 		cfg.Auth.RefreshTokenTTL,
 		log,
 		kafkaProducer,
-		
+		redisClient,
 	)
 
 	authHandlers := handlers.NewAuthHandlers(authService, log.Logger)

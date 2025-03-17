@@ -14,6 +14,11 @@ service Authentication{
     rpc ConfirmEmail(ConfirmEmailRequest)returns(ConfirmEmailResponse);
 }
 
+service FeedService {
+    rpc CreatePost(CreatePostRequest) returns (CreatePostResponse);
+    rpc GetAllPosts(GetAllPostsRequest) returns (GetAllPostsResponse);
+}
+
 message RegisterRequest{
     string email=1;
     string password=2;
@@ -38,17 +43,14 @@ message LoginResponse{
 
 message LogoutRequest{
     string id = 1;
-  
 }
 
 message LogoutResponse{
     bool success=1;
-  
 }
 
 message RefreshRequest{
     string refresh_token=1;
-    
 }
 
 message RefreshResponse{
@@ -86,4 +88,29 @@ message AccessToken {
 message RefreshToken {
     string token = 1;
     int64 expiresAt = 2; 
+}
+
+message CreatePostRequest {
+    string content = 2;
+    string image_url = 3;
+}
+
+message CreatePostResponse {
+    Post post = 1;
+}
+
+message GetAllPostsRequest {
+    int32 page = 1;         
+    int32 page_size = 2;     
+}
+
+message GetAllPostsResponse {
+    repeated Post posts = 1;
+    int32 total_posts = 2;   
+}
+
+message Post {
+    string content = 3;
+    string image_url = 4;
+    string created_at = 5;
 }

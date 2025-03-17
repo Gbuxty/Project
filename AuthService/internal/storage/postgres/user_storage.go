@@ -1,11 +1,11 @@
 package postgres
 
 import (
+	"Project/AuthService/internal/domain/models"
 	"context"
 	"database/sql"
 	"errors"
 	"fmt"
-	"Project/AuthService/internal/domain/models"
 	"time"
 
 	"github.com/google/uuid"
@@ -15,7 +15,6 @@ import (
 type UserStorage struct {
 	db *pgxpool.Pool
 }
-
 
 func NewUserStorage(db *pgxpool.Pool) (*UserStorage, error) {
 	return &UserStorage{
@@ -69,27 +68,6 @@ func (r *UserStorage) GetUserByID(ctx context.Context, userID uuid.UUID) (*model
 	return &user, nil
 }
 
-func (r *UserStorage) GetUserIDByRefreshToken(ctx context.Context, refreshToken string) (uuid.UUID, time.Time, error) {
-	var (
-		userID    uuid.UUID
-		expiresAt time.Time
-	)
-
-	query := `SELECT user_id, refresh_token_expires_at FROM users_tokens WHERE refresh_token = $1`
-	if err := r.db.QueryRow(ctx, query, refreshToken).Scan(&userID, &expiresAt); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return uuid.Nil, time.Time{}, fmt.Errorf("invalid refresh token")
-		}
-		return uuid.Nil, time.Time{}, fmt.Errorf("failed to get user by refresh token: %w", err)
-	}
-
-	if time.Now().After(expiresAt) {
-		return uuid.Nil, time.Time{}, fmt.Errorf("refresh token expired")
-	}
-
-	return userID, expiresAt, nil
-}
-
 func (r *UserStorage) UserExists(ctx context.Context, email string) (bool, error) {
 	var exists bool
 
@@ -102,19 +80,20 @@ func (r *UserStorage) UserExists(ctx context.Context, email string) (bool, error
 	return exists, nil
 }
 
-func (r *UserStorage) SaveTokens(ctx context.Context, userID uuid.UUID, accessToken string, refreshToken string, refreshExp time.Time) error {
+func (r *UserStorage) SaveTokens(ctx context.Context, userID uuid.UUID, accessToken string, accessTokenExpiresAt time.Time, refreshToken string, refreshExp time.Time) error {
 	query := `
-		INSERT INTO users_tokens 
-			(user_id, access_token, refresh_token, refresh_token_expires_at) 
-		VALUES 
-			($1, $2, $3, $4)
-		ON CONFLICT (user_id) 
-		DO UPDATE SET 
-			access_token = $2, 
-			refresh_token = $3,
-			refresh_token_expires_at = $4
-	`
-	_, err := r.db.Exec(ctx, query, userID, accessToken, refreshToken, refreshExp)
+        INSERT INTO users_tokens 
+            (user_id, access_token, access_token_expires_at, refresh_token, refresh_token_expires_at) 
+        VALUES 
+            ($1, $2, $3, $4, $5)
+        ON CONFLICT (user_id) 
+        DO UPDATE SET 
+            access_token = $2,
+            access_token_expires_at = $3,
+            refresh_token = $4,
+            refresh_token_expires_at = $5
+    `
+	_, err := r.db.Exec(ctx, query, userID, accessToken, accessTokenExpiresAt, refreshToken, refreshExp)
 	if err != nil {
 		return fmt.Errorf("failed to save tokens: %w", err)
 	}
@@ -124,14 +103,15 @@ func (r *UserStorage) SaveTokens(ctx context.Context, userID uuid.UUID, accessTo
 
 func (r *UserStorage) DeleteTokens(ctx context.Context, userID uuid.UUID) error {
 	query := `
-		UPDATE users_tokens 
-		SET 
-			access_token = NULL,
-			refresh_token = NULL,
-			refresh_token_expires_at = NULL,
-			deleted_at = NOW()
-		WHERE user_id = $1
-	`
+        UPDATE users_tokens 
+        SET 
+            access_token = NULL,
+            access_token_expires_at = NULL,
+            refresh_token = NULL,
+            refresh_token_expires_at = NULL,
+            deleted_at = NOW()
+        WHERE user_id = $1
+    `
 	_, err := r.db.Exec(ctx, query, userID)
 	if err != nil {
 		return fmt.Errorf("failed to delete tokens: %w", err)
@@ -178,4 +158,26 @@ func (r *UserStorage) SaveConfirmationCode(ctx context.Context, userID uuid.UUID
 	}
 
 	return nil
+}
+
+func (r *UserStorage) GetAccessToken(ctx context.Context, userID uuid.UUID) (string, time.Time, error) {
+	var (
+		accessToken    string
+		accessTokenExp time.Time
+	)
+
+	query := `
+		SELECT access_token, access_token_expires_at
+		FROM users_tokens
+		WHERE user_id = $1
+	`
+	err := r.db.QueryRow(ctx, query, userID).Scan(&accessToken, &accessTokenExp)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", time.Time{}, fmt.Errorf("access token not found")
+		}
+		return "", time.Time{}, fmt.Errorf("failed to get access token: %w", err)
+	}
+
+	return accessToken, accessTokenExp, nil
 }

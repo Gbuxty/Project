@@ -24,23 +24,31 @@ type AuthenticationService struct {
 	AccessTokenTTL  time.Duration
 	RefreshTokenTTL time.Duration
 	KafkapProducer  MessageBroker
+	redisClient     RedisRepositories
 }
 
-type MessageBroker interface{
+type RedisRepositories interface {
+	Set(ctx context.Context, key string, value interface{}, ttl time.Duration) error
+	Get(ctx context.Context, key string) (string, error)
+	Delete(ctx context.Context, key string) error
+}
+
+type MessageBroker interface {
 	SendMessage(ctx context.Context, key string, value interface{}) error
 }
 
-type UserStorage interface{
+type UserStorage interface {
 	CreateUser(ctx context.Context, email, password string) (uuid.UUID, error)
 	GetUserByEmail(ctx context.Context, email string) (*models.User, error)
 	GetUserByID(ctx context.Context, userID uuid.UUID) (*models.User, error)
-	GetUserIDByRefreshToken(ctx context.Context, refreshToken string) (uuid.UUID, time.Time, error) 
+	/* GetUserIDByRefreshToken(ctx context.Context, refreshToken string) (uuid.UUID, time.Time, error) */
 	UserExists(ctx context.Context, email string) (bool, error)
-	SaveTokens(ctx context.Context, userID uuid.UUID, accessToken string, refreshToken string, refreshExp time.Time) error
+	SaveTokens(ctx context.Context, userID uuid.UUID, accessToken string, accessExp time.Time, refreshToken string, refreshExp time.Time) error
 	DeleteTokens(ctx context.Context, userID uuid.UUID) error
 	ConfirmEmail(ctx context.Context, email, code string) (uuid.UUID, error)
 	SaveConfirmationCode(ctx context.Context, userID uuid.UUID, confirmationCode string, confirmCodeExpiresAt time.Time) error
-} 
+	GetAccessToken(ctx context.Context, userID uuid.UUID) (string, time.Time, error)
+}
 
 func NewAuthenticationService(
 	userRepo *postgres.UserStorage,
@@ -49,7 +57,7 @@ func NewAuthenticationService(
 	refreshTokenTTL time.Duration,
 	log *logger.Logger,
 	KafkaProducer *kafka.Producer,
-
+	redisClient RedisRepositories,
 ) *AuthenticationService {
 	return &AuthenticationService{
 		userStorage:     userRepo,
@@ -58,12 +66,13 @@ func NewAuthenticationService(
 		RefreshTokenTTL: refreshTokenTTL,
 		logger:          log,
 		KafkapProducer:  KafkaProducer,
+		redisClient:     redisClient,
 	}
 }
 
 func (s *AuthenticationService) Register(ctx context.Context, email, password, repeatPassword string) error {
 	if err := s.ValidateRegister(ctx, email, password, repeatPassword); err != nil {
-		return fmt.Errorf("Failed validate register;%w",err)
+		return fmt.Errorf("Failed validate register;%w", err)
 	}
 
 	passwordHash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
@@ -83,10 +92,10 @@ func (s *AuthenticationService) Register(ctx context.Context, email, password, r
 		return fmt.Errorf("failed to save confirmation code: %w", err)
 	}
 
-	message:=message.ConfirmationMessage{
+	message := message.ConfirmationMessage{
 		ToEmail: email,
 		Subject: "Welcome!",
-		Body: confirmationCode,
+		Body:    confirmationCode,
 	}
 
 	if err := s.KafkapProducer.SendMessage(ctx, email, message); err != nil {
@@ -122,7 +131,7 @@ func (s *AuthenticationService) Login(ctx context.Context, email, password strin
 		return nil, "", "", fmt.Errorf("invalid password")
 	}
 
-	accessToken, _, err := jwt.GenerateToken(user.ID, user.Email, s.jwtSecretKey, s.AccessTokenTTL)
+	accessToken, accessTokenExpiresAt, err := jwt.GenerateToken(user.ID, user.Email, s.jwtSecretKey, s.AccessTokenTTL)
 	if err != nil {
 		return nil, "", "", fmt.Errorf("failed to generate access token: %w", err)
 	}
@@ -132,38 +141,43 @@ func (s *AuthenticationService) Login(ctx context.Context, email, password strin
 		return nil, "", "", fmt.Errorf("failed to generate refresh token: %w", err)
 	}
 
-	if err := s.userStorage.SaveTokens(ctx, user.ID, accessToken, refreshToken, refreshTokenExpiresAt); err != nil {
+	if err := s.userStorage.SaveTokens(ctx, user.ID, accessToken, accessTokenExpiresAt, refreshToken, refreshTokenExpiresAt); err != nil {
 		return nil, "", "", fmt.Errorf("failed to save  token: %w", err)
 	}
+
+	userIDKey := user.ID.String()
+	ttl := time.Until(accessTokenExpiresAt)
+	if err := s.redisClient.Set(ctx, userIDKey, accessToken, ttl); err != nil {
+		return nil, "", "", fmt.Errorf("failed to save access token to Redis: %w", err)
+	}
+
 	return user, accessToken, refreshToken, nil
 }
 
 func (s *AuthenticationService) Logout(ctx context.Context, userID uuid.UUID) error {
+	userIDKey := userID.String()
+	if err := s.redisClient.Delete(ctx, userIDKey); err != nil {
+		return fmt.Errorf("failed to delete access token from Redis: %w", err)
+	}
+
 	if err := s.userStorage.DeleteTokens(ctx, userID); err != nil {
 		return fmt.Errorf("failed to delete refresh token: %w", err)
 	}
 
 	return nil
 }
+
 func (s *AuthenticationService) Refresh(ctx context.Context, refreshToken string) (*models.User, string, string, error) {
-	userID, expiresAt, err := s.userStorage.GetUserIDByRefreshToken(ctx, refreshToken)
+	userID, err := jwt.ExtractUserIDFromToken(refreshToken, s.jwtSecretKey)
 	if err != nil {
-		return nil, "", "", fmt.Errorf("invalid refresh token: %w", err)
+		return nil, "", "", fmt.Errorf("failed to extract user_id from token")
 	}
-
-	if time.Now().After(expiresAt) {
-		if err := s.userStorage.DeleteTokens(ctx, userID); err != nil { 
-			fmt.Errorf("Failed to delete expired refresh token:%w",err)
-		}
-		return nil, "", "", fmt.Errorf("refresh token expired")
-	}
-
 	user, err := s.userStorage.GetUserByID(ctx, userID)
 	if err != nil {
 		return nil, "", "", fmt.Errorf("failed to fetch user: %w", err)
 	}
 
-	accessToken, _, err := jwt.GenerateToken(user.ID, user.Email, s.jwtSecretKey, s.AccessTokenTTL)
+	accessToken, accessTokenExpiresAt, err := jwt.GenerateToken(user.ID, user.Email, s.jwtSecretKey, s.AccessTokenTTL)
 	if err != nil {
 		return nil, "", "", fmt.Errorf("failed to generate access token: %w", err)
 	}
@@ -173,8 +187,14 @@ func (s *AuthenticationService) Refresh(ctx context.Context, refreshToken string
 		return nil, "", "", fmt.Errorf("failed to generate refresh token: %w", err)
 	}
 
-	if err := s.userStorage.SaveTokens(ctx, user.ID, accessToken, refreshToken, refreshTokenExpiresAt); err != nil {
+	if err := s.userStorage.SaveTokens(ctx, user.ID, accessToken, accessTokenExpiresAt, refreshToken, refreshTokenExpiresAt); err != nil {
 		return nil, "", "", fmt.Errorf("failed to save access token: %w", err)
+	}
+
+	userIDKey := user.ID.String()
+	ttl := time.Until(accessTokenExpiresAt)
+	if err := s.redisClient.Set(ctx, userIDKey, accessToken, ttl); err != nil {
+		return nil, "", "", fmt.Errorf("failed to save access token to Redis: %w", err)
 	}
 
 	return user, accessToken, refreshToken, nil
@@ -184,6 +204,24 @@ func (s *AuthenticationService) Me(ctx context.Context, accessToken string) (*mo
 	userID, err := jwt.ExtractUserIDFromToken(accessToken, s.jwtSecretKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract user ID: %w", err)
+	}
+
+	userIDKey := userID.String()
+	storedAccessToken, err := s.redisClient.Get(ctx, userIDKey)
+	if err != nil {
+		storedAccessToken, expiresAt, err := s.userStorage.GetAccessToken(ctx, userID)
+		if err != nil {
+			return nil, fmt.Errorf("invalid or expired access token: %w", err)
+		}
+
+		ttl := time.Until(expiresAt)
+		if err := s.redisClient.Set(ctx, userIDKey, storedAccessToken, ttl); err != nil {
+			return nil, fmt.Errorf("failed to save access token to Redis: %w", err)
+		}
+	}
+
+	if storedAccessToken != accessToken {
+		return nil, fmt.Errorf("invalid access token")
 	}
 
 	user, err := s.userStorage.GetUserByID(ctx, userID)

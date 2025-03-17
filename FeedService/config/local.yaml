@@ -1,0 +1,10 @@
+env: "local"
+
+postgres:
+  storage_path: "host=postgres-feed port=5432 user=feeduser password=feedpassword dbname=feedservice sslmode=disable"
+
+grpc:
+  port: 7070
+auth:
+  secret_key: "E3IiecHXTaBytd5Sik50L/YvQTVlzmngF8u6TR+N66w"
+  

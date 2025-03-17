@@ -4,6 +4,7 @@ go 1.23.0
 
 require (
 	github.com/dchest/uniuri v1.2.0
+	github.com/go-redis/redis/v8 v8.11.5
 	github.com/gofiber/fiber/v2 v2.52.6
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/google/uuid v1.6.0
@@ -14,6 +15,11 @@ require (
 	golang.org/x/crypto v0.36.0
 	google.golang.org/grpc v1.71.0
 	google.golang.org/protobuf v1.36.5
+)
+
+require (
+	github.com/cespare/xxhash/v2 v2.3.0 // indirect
+	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 )
 
 require (

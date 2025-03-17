@@ -3,7 +3,6 @@ package config
 import (
 	"flag"
 	"fmt"
-	"time"
 
 	"github.com/spf13/viper"
 )
@@ -11,33 +10,19 @@ import (
 type Config struct {
 	Env      string          `mapstructure:"env"`
 	Postgres *PostgresConfig `mapstructure:"postgres"`
-	Auth     *AuthConfig     `mapstructure:"auth"`
 	Grpc     *GRPCConfig     `mapstructure:"grpc"`
-	Kafka    *KafkaConfig    `mapstructure:"kafka"`
-	Redis    *RedisConfig    `mapstructure:"redis"`
+	Auth     *AuthConfig     `mapstructure:"auth"`
 }
-
-type AuthConfig struct {
-	SecretKey       string        `mapstructure:"secret_key"`
-	AccessTokenTTL  time.Duration `mapstructure:"access_token_ttl"`
-	RefreshTokenTTL time.Duration `mapstructure:"refresh_token_ttl"`
-}
-
 type PostgresConfig struct {
 	StoragePath string `mapstructure:"storage_path"`
 }
 
 type GRPCConfig struct {
-	Port    int           `mapstructure:"port"`
+	Port int `mapstructure:"port"`
 }
 
-type KafkaConfig struct {
-	Broker string `mapstructure:"broker"`
-	Topic  string `mapstructure:"topic"`
-}
-
-type RedisConfig struct {
-	Addr string `mapstructure:"addr"`
+type AuthConfig struct {
+	SecretKey string `mapstructure:"secret_key"`
 }
 
 func InitFlags() string {

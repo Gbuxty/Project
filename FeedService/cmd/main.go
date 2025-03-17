@@ -1,12 +1,11 @@
 package main
 
 import (
-	"Project/AuthService/internal/app"
-	"Project/AuthService/internal/config"
-	"Project/AuthService/internal/kafka"
-	"Project/AuthService/internal/logger"
-
+	"Project/FeedService/internal/app"
+	"Project/FeedService/internal/config"
+	"Project/FeedService/internal/logger"
 	"context"
+	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -19,7 +18,8 @@ func main() {
 
 	log, err := logger.New()
 	if err != nil {
-		log.Fatal("Failed to logger", zap.Error(err)) //вот тут логфатал не сработает если ошибка .он не инициализировался
+		fmt.Errorf("Failed load to logger %w", err)
+		return
 	}
 
 	defer log.Sync()
@@ -29,14 +29,9 @@ func main() {
 		log.Fatal("Failed to load config", zap.Error(err))
 	}
 
-	kafkaProducer := kafka.NewProducer([]string{cfg.Kafka.Broker},
-		cfg.Kafka.Topic,
-		log,
-	)
-
-	application, err := app.New(log, cfg, kafkaProducer)
+	application, err := app.NewApp(log, cfg)
 	if err != nil {
-		log.Fatal("Failed to load application", zap.Error(err))
+		log.Fatal("Failed to initialize application", zap.Error(err))
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -44,8 +39,7 @@ func main() {
 
 	go func() {
 		if err := application.GRPCServer.Run(); err != nil {
-			log.Error("gRPC server failed", zap.Error(err))
-			cancel()
+			log.Error("GRPC server failed", zap.Error(err))
 		}
 	}()
 
@@ -59,4 +53,5 @@ func main() {
 	case <-ctx.Done():
 		log.Info("Forced shutdown...")
 	}
+
 }

@@ -11,6 +11,7 @@ type Config struct {
 	Env string `mapstructure:"env"`
 	AuthServiceAdress string `mapstructure:"auth_service_address"`
 	HttpServerAdress string `mapstructure:"http_server_adress"`
+	FeedServiceAdress string `mapstructure:"feed_service_address"`
 }
 
 func InitFlags() string {

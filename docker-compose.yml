@@ -44,7 +44,20 @@ services:
       KAFKA_CLUSTERS_0_NAME: local2
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: 'kafka:9092'
 
-  postgres:
+  redis:
+    image: redis:latest
+    container_name: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  postgres-auth:
     image: postgres:13
     environment:
       POSTGRES_USER: postgres
@@ -53,12 +66,27 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_auth_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
       timeout: 5s
       retries: 10
+  postgres-feed:
+    image: postgres:13
+    environment:
+      POSTGRES_USER: feeduser
+      POSTGRES_PASSWORD: feedpassword
+      POSTGRES_DB: feedservice
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_feed_data:/var/lib/postgresql/data
+    healthcheck:
+     test: ["CMD-SHELL", "pg_isready -U feeduser -d feedservice"]
+     interval: 5s
+     timeout: 5s
+     retries: 10
 
   authservice:
     build:
@@ -67,12 +95,16 @@ services:
     ports:
       - "9090:9090"
     depends_on:
-      postgres:
+      postgres-auth:
         condition: service_healthy
       kafka:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     volumes:
       - ./proto:/proto
+    environment:
+      REDIS_URL: "redis://redis:6379"
     healthcheck:
       test: ["CMD-SHELL", "nc -z kafka 9092 || exit 1"]
       interval: 10s
@@ -99,7 +131,6 @@ services:
       dockerfile: APIGateWay/Dockerfile
     ports:
       - "8080:8080"
-      
     depends_on:
       - authservice
       - notificationservice
@@ -113,7 +144,25 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+  feedservice:
+    build:
+      context: .
+      dockerfile: FeedService/Dockerfile
+    ports:
+      - "7070:7070"
+    depends_on:
+       postgres-feed:
+        condition: service_healthy
+    healthcheck:
+       test: ["CMD-SHELL", "curl -f http://localhost:7070/health || exit 1"]
+       interval: 10s
+       timeout: 5s
+       retries: 10
+
+
 
 volumes:
   zookeeper_data:
-  postgres_data:
+  postgres_auth_data:
+  postgres_feed_data:
+  redis_data:

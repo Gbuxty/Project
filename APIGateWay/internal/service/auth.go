@@ -1,50 +1,116 @@
 package service
 
 import (
-	"context"
-	"Project/proto/gen"
-	
-	"google.golang.org/grpc"
+    "Project/APIGateWay/internal/domain"
+    "Project/proto/gen"
+    "context"
+    "google.golang.org/grpc"
 )
 
-
 type AuthService struct {
-	client gen.AuthenticationClient
+    client gen.AuthenticationClient
 }
-
 
 func NewAuthService(conn *grpc.ClientConn) *AuthService {
-	return &AuthService{
-		client: gen.NewAuthenticationClient(conn),
-	}
+    return &AuthService{
+        client: gen.NewAuthenticationClient(conn),
+    }
 }
 
+func (s *AuthService) Register(ctx context.Context, req *domain.AuthRequest) (bool, error) {
+    grpcReq := &gen.RegisterRequest{
+        Email:         req.Email,
+        Password:      req.Password,
+        RepeatPassword: req.Password, 
+    }
 
-func (s *AuthService) Register(ctx context.Context, req *gen.RegisterRequest) (*gen.RegisterResponse, error) {
-	return s.client.Register(ctx, req)
+    res, err := s.client.Register(ctx, grpcReq)
+    if err != nil {
+        return false, err
+    }
+
+    return res.Success, nil
 }
 
+func (s *AuthService) Login(ctx context.Context, req *domain.AuthRequest) (*domain.TokenPair, *domain.User, error) {
+    grpcReq := &gen.LoginRequest{
+        Email:    req.Email,
+        Password: req.Password,
+    }
 
-func (s *AuthService) Login(ctx context.Context, req *gen.LoginRequest) (*gen.LoginResponse, error) {
-	return s.client.Login(ctx, req)
+    res, err := s.client.Login(ctx, grpcReq)
+    if err != nil {
+        return nil, nil, err
+    }
+
+    tokenPair := &domain.TokenPair{
+        AccessToken:  res.AccessToken.Token,
+        RefreshToken: res.RefreshToken.Token,
+    }
+
+    user := &domain.User{
+        ID:    res.User.Id,
+        Email: res.User.Email,
+    }
+
+    return tokenPair, user, nil
 }
 
+func (s *AuthService) Logout(ctx context.Context, userID string) (bool, error) {
+    grpcReq := &gen.LogoutRequest{
+        Id: userID,
+    }
 
-func (s *AuthService) Logout(ctx context.Context, req *gen.LogoutRequest) (*gen.LogoutResponse, error) {
-	return s.client.Logout(ctx, req)
+    res, err := s.client.Logout(ctx, grpcReq)
+    if err != nil {
+        return false, err
+    }
+
+    return res.Success, nil
 }
 
+func (s *AuthService) Refresh(ctx context.Context, refreshToken string) (*domain.TokenPair, error) {
+    grpcReq := &gen.RefreshRequest{
+        RefreshToken: refreshToken,
+    }
 
-func (s *AuthService) Refresh(ctx context.Context, req *gen.RefreshRequest) (*gen.RefreshResponse, error) {
-	return s.client.Refresh(ctx, req)
+    res, err := s.client.Refresh(ctx, grpcReq)
+    if err != nil {
+        return nil, err
+    }
+
+    return &domain.TokenPair{
+        AccessToken:  res.AccessToken.Token,
+        RefreshToken: res.RefreshToken.Token,
+    }, nil
 }
 
+func (s *AuthService) Me(ctx context.Context, accessToken string) (*domain.User, error) {
+    grpcReq := &gen.MeRequest{
+        AccessToken: accessToken,
+    }
 
-func (s *AuthService) Me(ctx context.Context, req *gen.MeRequest) (*gen.MeResponse, error) {
-	return s.client.Me(ctx, req)
+    res, err := s.client.Me(ctx, grpcReq)
+    if err != nil {
+        return nil, err
+    }
+
+    return &domain.User{
+        ID:    res.User.Id,
+        Email: res.User.Email,
+    }, nil
 }
 
+func (s *AuthService) ConfirmEmail(ctx context.Context, req *domain.ConfirmationRequest) (bool, error) {
+    grpcReq := &gen.ConfirmEmailRequest{
+        Email:            req.Email,
+        ConfirmationCode: req.ConfirmationCode,
+    }
 
-func (s *AuthService) ConfirmEmail(ctx context.Context, req *gen.ConfirmEmailRequest) (*gen.ConfirmEmailResponse, error) {
-	return s.client.ConfirmEmail(ctx, req)
+    res, err := s.client.ConfirmEmail(ctx, grpcReq)
+    if err != nil {
+        return false, err
+    }
+
+    return res.Success, nil
 }
