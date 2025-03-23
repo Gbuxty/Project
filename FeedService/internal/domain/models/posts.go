@@ -7,9 +7,9 @@ import (
 )
 
 type Post struct {
-	ID        uuid.UUID `json:"id"`
-	UserID    uuid.UUID `json:"user_id"`
-	Content   string    `json:"content"`
-	ImageURL  string    `json:"image_url"`
-	CreatedAt time.Time `json:"created_at"`
+	ID        uuid.UUID 
+	UserID    uuid.UUID 
+	Content   string    
+	ImageURL  string    
+	CreatedAt time.Time 
 }

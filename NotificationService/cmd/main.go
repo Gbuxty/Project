@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -18,7 +19,8 @@ func main() {
 
 	log, err := logger.New()
 	if err != nil {
-		log.Fatal("Failed to logger", zap.Error(err)) //вот тут логфатал не сработает если ошибка .он не инициализировался
+		fmt.Errorf("Failed to load logger %w",err)
+		return
 	}
 
 	defer log.Sync()

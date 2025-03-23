@@ -4,7 +4,7 @@ import (
 	"Project/APIGateWay/internal/handlers"
 	"Project/APIGateWay/internal/service"
 
-    "github.com/arsmn/fiber-swagger/v2"
+	swagger "github.com/arsmn/fiber-swagger/v2"
 	"github.com/gofiber/fiber/v2"
 )
 

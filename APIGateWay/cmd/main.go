@@ -17,7 +17,7 @@ func main() {
 
 	log, err := logger.New()
 	if err != nil {
-		fmt.Errorf("Failed load logger")
+		fmt.Errorf("Failed load logger%w", err)
 		return
 	}
 

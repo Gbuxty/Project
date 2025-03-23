@@ -4,7 +4,7 @@ import (
 	"Project/AuthService/internal/config"
 	"Project/AuthService/internal/kafka"
 	"Project/AuthService/internal/logger"
-	"Project/AuthService/internal/redis"
+	"Project/AuthService/internal/storage/redis"
 	"Project/AuthService/internal/service"
 	"Project/AuthService/internal/storage/postgres"
 	"Project/AuthService/internal/transport/handlers"
@@ -18,18 +18,21 @@ type App struct {
 	GRPCServer *server.GRPCServer
 }
 
-func New(log *logger.Logger, cfg *config.Config,kafkaProducer *kafka.Producer) (*App,error) {
+func New(log *logger.Logger, cfg *config.Config) (*App, error) {
 	db, err := database.ConnectToDB(cfg.Postgres.StoragePath)
 	if err != nil {
-		return nil,fmt.Errorf("Failed connect to db:%w",err)
+		return nil, fmt.Errorf("Failed connect to db:%w", err)
 	}
 
 	userStorage, err := postgres.NewUserStorage(db)
 	if err != nil {
-		return nil,fmt.Errorf("Failed to init user repositories:%w",err)
+		return nil, fmt.Errorf("Failed to init user repositories:%w", err)
 	}
 
-	
+	kafkaProducer := kafka.NewProducer([]string{cfg.Kafka.Broker},
+		cfg.Kafka.Topic,
+		log,
+	)
 
 	redisClient := redis.NewClient(cfg.Redis.Addr)
 	if redisClient == nil {
@@ -56,7 +59,7 @@ func New(log *logger.Logger, cfg *config.Config,kafkaProducer *kafka.Producer) (
 
 	return &App{
 		GRPCServer: grpcServer,
-	},nil
+	}, nil
 }
 
 func (a *App) RunGRPC() error {

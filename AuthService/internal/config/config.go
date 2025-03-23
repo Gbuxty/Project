@@ -28,7 +28,7 @@ type PostgresConfig struct {
 }
 
 type GRPCConfig struct {
-	Port    int           `mapstructure:"port"`
+	Port int `mapstructure:"port"`
 }
 
 type KafkaConfig struct {

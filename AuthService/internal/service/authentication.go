@@ -41,7 +41,6 @@ type UserStorage interface {
 	CreateUser(ctx context.Context, email, password string) (uuid.UUID, error)
 	GetUserByEmail(ctx context.Context, email string) (*models.User, error)
 	GetUserByID(ctx context.Context, userID uuid.UUID) (*models.User, error)
-	/* GetUserIDByRefreshToken(ctx context.Context, refreshToken string) (uuid.UUID, time.Time, error) */
 	UserExists(ctx context.Context, email string) (bool, error)
 	SaveTokens(ctx context.Context, userID uuid.UUID, accessToken string, accessExp time.Time, refreshToken string, refreshExp time.Time) error
 	DeleteTokens(ctx context.Context, userID uuid.UUID) error
